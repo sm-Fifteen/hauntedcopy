@@ -41,7 +41,7 @@ do
 	
 	-d | --dictionary )
 		dictionary="$2";
-		if [ -f $dictionary	];then
+		if [ -f "$dictionary" ];then
 			shift 2
 		else
 			echo "Dictionary file does not exist : $dictionary"
@@ -50,7 +50,7 @@ do
 		;;
 	-p | --pool )
 		poolLocation="$2";
-		if [ -d $poolLocation	];then
+		if [ -d "$poolLocation" ];then
 			shift 2
 		else
 			echo "The specified pool is not a valid directory : $poolLocation"
@@ -104,7 +104,7 @@ for dir in "$@"; do
 		if [ -n "$targetLocationList" ];then		
 			targetLocationsList="$targetLocationsList\n$dir"
 		else
-			targetLocationsList=$dir
+			targetLocationsList="$dir"
 		fi
 	fi
 done
@@ -112,13 +112,13 @@ done
 ###############################
 
 #Select random file in the directory where the script is located
-chosenFile="$(find $poolLocation -maxdepth 1 -type f | shuf -n 1)"
+chosenFile="$(find "$poolLocation" -maxdepth 1 -type f | shuf -n 1)"
 
-generatedName="$(shuf -n 2 $dictionary | tr '\n' ' ' | sed 's/ *$//')"
+generatedName="$(shuf -n 2 "$dictionary" | tr '\n' ' ' | sed 's/ *$//')"
 
 chosenLocation="$(echo "$targetLocationsList" | shuf -n 1)"
 
-fileExt="$(echo $chosenFile | rev | cut -d. -f 1 | rev)"
+fileExt="$(echo "$chosenFile" | rev | cut -d. -f 1 | rev)"
 
 finalPath="$chosenLocation/$generatedName.$fileExt"
 
