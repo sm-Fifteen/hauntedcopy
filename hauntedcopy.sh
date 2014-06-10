@@ -122,7 +122,7 @@ fileExt="$(echo "$chosenFile" | rev | cut -d. -f 1 | rev)"
 
 finalPath="$chosenLocation/$generatedName.$fileExt"
 
-if [ "$copy" = true ];then
+if [ "$copy" = "true" ];then
 	if [ -r "$chosenFile" ]; then
 		cp "$chosenFile" "$finalPath"
 		##TODO : Add a check for sucessful completion
@@ -132,9 +132,18 @@ if [ "$copy" = true ];then
 		exit 3
 	fi
 else
+	chosenFileDevice="$(stat -c '%d' "$chosenFile")"
+	chosenLocationDevice="$(stat -c '%d' "$chosenLocation")"
+
 	if [ -r "$chosenFile" ] && [ -w "$chosenFile" ]; then
-		ln -T "$chosenFile" "$finalPath"
-		##TODO : Add a check for sucessful completion
+		if [ $chosenFileDevice -eq $chosenLocationDevice ];then
+			ln -T "$chosenFile" "$finalPath"
+			##TODO : Add a check for sucessful completion
+		else
+			echo "Cannot create a link between two files on different filesystems."
+			echo "Try the copy mode (-c) instead."
+			exit 3
+		fi
 	else
 		echo "Cannot create a link unless the chosen file is both readable and writable."
 		echo "chosenFile : $chosenFile"
