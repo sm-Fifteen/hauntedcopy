@@ -5,19 +5,21 @@ usage(){
 }
 
 help(){
-	echo -e "Copies a randomly selected file from a given pool to a random location among those passed with a name generated from a dictionary."
-	echo -e "Is especially amusing to use with a cronjob on an unsuspecting person's machine."
-	echo -e "\n"
-	echo -e "Options :"
-	echo -e "--debug\t\tShows the selected file and destination"
-	echo -e "-p/--pool\tNot required, but recommanded. Folder containing the files that will be copied. Leaving it unspecified will default to the script's location, which mean the script could copy itself."
-	echo -e "-d/--dictionary\tLocation of the file used to generate names. It should be a simple file with words separated by UNIX-style linebreaks."
-	echo -e "-c/--copy\tUses cp instead of ln to duplicatethe file, which is slower and more noticable, but does not requires write permissions."
-	echo -e "\n"
-	echo "Error codes :"
-	echo "1 : Invalid arguments"
-	echo "2 : Invalid file or directory"
-	echo "3 : Blocked by permissions"
+	echo -e  << EOF
+Copies a randomly selected file from a given pool to a random location among those passed with a name generated from a dictionary.
+Is especially amusing to use with a cronjob or a systemd timer on an unsuspecting person's machine.
+
+Options :
+	--debug\t\tShows the selected file and destination
+	-p/--pool\tNot required, but recommanded. Folder containing the files that will be copied. Leaving it unspecified will default to the script's location, which mean the script could copy itself.
+	-d/--dictionary\tLocation of the file used to generate names. It should be a simple file with words separated by UNIX-style linebreaks.
+	-c/--copy\tUses cp instead of ln to duplicatethe file, which is slower and more noticable, but does not requires write permissions.
+
+Error codes :
+	1 : Invalid arguments
+	2 : Invalid file or directory
+	3 : Blocked by permissions
+EOF
 }
 
 # Check for arguments
@@ -112,7 +114,20 @@ done
 ###############################
 
 #Select random file in the directory where the script is located
-chosenFile="$(find "$poolLocation" -maxdepth 1 -type f | shuf -n 1)"
+# \( ! -ipath ${BASH_SOURCE[0]} \)
+
+if [ "$copy" = "true" ];then
+	foundFiles="$(find "$poolLocation" -maxdepth 1 -type f -readable)"
+else
+	foundFiles="$(find "$poolLocation" -maxdepth 1 -type f -readable -writable)"
+fi
+
+if [ $(echo "$foundFiles" | wc -w) -eq  0 ];then
+	[[ "$copy" = "true" ]] && echo "No files eligible for copy (Readable)" || echo "No files eligible for linking (Readable and Writable)"
+	exit 3;
+fi
+
+chosenFile="$(echo "$foundFiles" | shuf -n 1)"
 
 generatedName="$(shuf -n 2 "$dictionary" | tr '\n' ' ' | sed 's/ *$//')"
 
@@ -123,35 +138,24 @@ fileExt="$(echo "$chosenFile" | rev | cut -d. -f 1 | rev)"
 finalPath="$chosenLocation/$generatedName.$fileExt"
 
 if [ "$copy" = "true" ];then
-	if [ -r "$chosenFile" ]; then
-		cp "$chosenFile" "$finalPath"
-		##TODO : Add a check for sucessful completion
-	else
-		echo "Cannot create a copy unless the chosen file is readable."
-		echo "chosenFile : $chosenFile"
-		exit 3
-	fi
+	cp "$chosenFile" "$finalPath"
+	##TODO : Add a check for sucessful completion
 else
 	chosenFileDevice="$(stat -c '%d' "$chosenFile")"
 	chosenLocationDevice="$(stat -c '%d' "$chosenLocation")"
 
-	if [ -r "$chosenFile" ] && [ -w "$chosenFile" ]; then
-		if [ $chosenFileDevice -eq $chosenLocationDevice ];then
-			ln -T "$chosenFile" "$finalPath"
-			##TODO : Add a check for sucessful completion
-		else
-			echo "Cannot create a link between two files on different filesystems."
-			echo "Try the copy mode (-c) instead."
-			exit 3
-		fi
+	if [ $chosenFileDevice -eq $chosenLocationDevice ];then
+		ln -T "$chosenFile" "$finalPath"
+		##TODO : Add a check for sucessful completion
 	else
-		echo "Cannot create a link unless the chosen file is both readable and writable."
-		echo "chosenFile : $chosenFile"
+		echo "Cannot create a link between two files on different filesystems."
+		echo "Try the copy mode (-c) instead."
 		exit 3
 	fi
 fi
 
 if [ "$debug" = "true" ]; then
+	[[ "$copy" = "true" ]] && echo "Found $(echo "$foundFiles" | wc -l) files eligible for copy (Readable)" || echo "Found $(echo "$foundFiles" | wc -l) files eligible for linking (Readable and Writable)"
 	#echo "dictionary : $dictionary"
 	#echo "poolLocation : $poolLocation"
 	echo "chosenFile : $chosenFile"
